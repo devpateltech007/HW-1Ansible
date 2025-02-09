@@ -1,0 +1,74 @@
+- name: VM1 and 2 Web Server
+  hosts: webservers
+  become: yes
+  vars:
+    http_port: 8080
+  tasks:
+    - name: Install Nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+      tags: deploy
+ 
+    - name: Start Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: yes
+      tags: deploy
+ 
+    - name: Configure Nginx to listen on port {{ http_port }}
+      ansible.builtin.copy:
+        dest: /etc/nginx/sites-available/default
+        content: |
+          server {
+              listen {{ http_port }};
+              location / {
+                  root /var/www/html;
+                  index index.html;
+              }
+          }
+      notify: Restart Nginx
+      tags: deploy
+ 
+    - name: Create a Web Page for VM1
+      ansible.builtin.copy:
+        dest: /var/www/html/index.html
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head><title>VM1</title></head>
+          <body><h1>Hello World from SJSU-1</h1></body>
+          </html>
+      when: "'vm1' in inventory_hostname"
+      tags: deploy
+ 
+    - name: Create a Web Page for VM2
+      ansible.builtin.copy:
+        dest: /var/www/html/index.html
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head><title>VM2</title></head>
+          <body><h1>Hello World from SJSU-2</h1></body>
+          </html>
+      when: "'vm2' in inventory_hostname"
+      tags: deploy
+ 
+    - name: Stop and Remove Nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: absent
+      tags: undeploy
+ 
+    - name: Remove Web Files
+      ansible.builtin.file:
+        path: /var/www/html/index.html
+        state: absent
+      tags: undeploy
+ 
+  handlers:
+    - name: Restart Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
